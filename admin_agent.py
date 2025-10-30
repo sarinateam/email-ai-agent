@@ -11,7 +11,7 @@ from googleapiclient.errors import HttpError
 
 # -- Google Config --
 # The path to the secret JSON key file you downloaded
-SERVICE_ACCOUNT_FILE = 'dulcet-nucleus-455309-e4-2fa6bee7ce63.json' 
+SERVICE_ACCOUNT_FILE = 'service_account_1.json' 
 # The team members your agent has permission to check
 USERS_TO_AUDIT = [
     'vijay.shankar@ateamsoftsolutions.com', 
@@ -25,10 +25,7 @@ USERS_TO_AUDIT = [
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
 # -- OpenAI Config --
-client = OpenAI(
-    api_key='XXXXXXXXXXXXXXXX'
-)
-
+client = OpenAI()
 
 # --- 2. The REAL Tool Definition (The "Login" Logic) ---
 

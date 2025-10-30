@@ -1,166 +1,213 @@
-Here is a complete `README.md` file for the agent project we built.
+📊 Daily Report AI Auditor
+This project contains two distinct AI agents designed to audit daily email reports using the OpenAI API and Google Gmail.
 
------
+Admin Agent (admin_agent.py):
 
-# 📊 Daily Report Auditor Agent
+Use Case: For Google Workspace Admins.
 
-This project is an AI agent built with the **OpenAI Assistants API** and **Python**. Its purpose is to automatically audit a team's Google Mail inboxes to verify that all members have submitted their daily task reports by a specific deadline.
+Action: Logs in as a "robot" (Service Account) to "impersonate" users. It checks their "Sent" folders to verify they sent their reports.
 
-It securely connects to the **Google Gmail API** using a **Service Account** with **Domain-Wide Delegation** (impersonation) to read inboxes, then uses the OpenAI Assistant's logic to analyze the findings and generate a summary report.
+Login Method: Server-to-Server (Service Account JSON).
 
-## 🚀 Features
+Individual Agent (individual_agent.py):
 
-  * **AI-Powered Logic:** Uses an OpenAI Assistant to understand the task, call tools, and analyze results.
-  * **Secure Authentication:** Uses a Google Service Account (JSON key) for secure, non-human "agent-to-agent" login.
-  * **User Impersonation:** Leverages Google Workspace Domain-Wide Delegation to read specific user inboxes without needing their passwords.
-  * **Timezone-Aware:** Checks email timestamps against a hard-coded deadline (e.g., 5:00 PM EST).
-  * **Automated Reporting:** Generates a clean Markdown table of who is on time and who is missing or late.
+Use Case: For any individual user.
 
------
+Action: Logs in as you (using a one-time browser login) and checks your "Inbox" for reports you received from your team.
 
-## 🛠️ Prerequisites
+Login Method: OAuth 2.0 (Desktop App JSON).
 
-Before you can run this script, you **must** complete the following setup. This is the most complex part of the project.
+🚀 Core Features
+AI-Powered Logic: Uses an OpenAI Assistant to intelligently parse email subjects for keywords (e.g., "Daily Status Update" OR "Daily Task Report") and flexible date formats (e.g., 30-10-2025 vs. 10/30/2025).
 
-### 1\. Python
+Two Login Modes: Choose the script that matches your specific goal and account type.
 
-  * You must have **Python 3.7+** installed.
-  * **On Windows:** If you get a `Python was not found...` error, you must **fix your App execution aliases** or use the `py` command (e.g., `py your_script.py`).
+Dynamic Team List: Both scripts dynamically build the AI's instructions from a single Python list, so you only need to update your team in one place.
 
-### 2\. OpenAI Account
+Timezone-Aware: Deadlines are calculated in a specific timezone (e.g., IST) and compared against the email's precise arrival timestamp.
 
-  * You need an **OpenAI API Key** with credits on your account.
-  * You will set this as an environment variable (see **Usage**).
+🛠️ Common Setup (For Both Agents)
+Install Python 3.7+ on your system.
 
-### 3\. Google Cloud Project & Service Account
+Create a Google Cloud Project: Go to the Google Cloud Console and create a new project.
 
-You need to create the agent's "identity" in Google Cloud.
+Enable the Gmail API:
 
-1.  **Create a Google Cloud Project:** Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project.
-2.  **Enable the Gmail API:** In your project, go to "APIs & Services" \> "Library" and search for **"Gmail API"**. Click **Enable**.
-3.  **Create a Service Account:**
-      * Go to "IAM & Admin" \> "Service Accounts".
-      * Click **"+ Create Service Account"**.
-      * Give it a name (e.g., `daily-report-auditor`).
-4.  **Download the JSON Key:**
-      * Click on your new service account's email address.
-      * Go to the **"Keys"** tab.
-      * Click **"Add Key"** \> **"Create new key"**.
-      * Select **JSON** and click **"Create"**.
-      * A `.json` file will download. **This is your agent's "password."** Guard it carefully.
+In your project, go to APIs & Services > Library.
 
-### 4\. Google Workspace Admin (CRITICAL)
+Search for "Gmail API" and click on it.
 
-This is the **"login"** step. Your agent's identity must be given permission to access your team's inboxes. **You must be a Google Workspace Super Admin to do this.**
+Click the "Enable" button. (This is required for both methods).
 
-1.  **Find your Service Account's Client ID:**
-      * Go back to "IAM & Admin" \> "Service Accounts".
-      * Click on your service account.
-      * Go to the **"Details"** tab and copy the **"Unique ID"** (it's a long number).
-2.  **Authorize Domain-Wide Delegation:**
-      * Go to your Google Workspace Admin Console at [admin.google.com](https://admin.google.com).
-      * Go to **Security \> Access and data control \> API Controls**.
-      * Click **"Manage Domain Wide Delegation"**.
-      * Click **"Add new"**.
-      * Paste the **"Client ID"** (the long number) you just copied.
-      * In the **"OAuth scopes"** field, paste this exact scope:
-        `https://www.googleapis.com/auth/gmail.readonly`
-      * Click **"Authorize"**.
+Install Libraries: Open your terminal and install all the required packages:
 
-It may take 5-10 minutes for this permission to become active.
+Bash
 
------
+pip install --upgrade openai google-api-python-client google-auth-httplib2 google-auth-oauthlib pytz python-dateutil
+Get OpenAI API Key: Get your key from your OpenAI API Keys page.
 
-## ⚙️ Installation
+🔒 Mode 1: Admin Agent (admin_agent.py) Setup
+Use this if you are a Google Workspace Admin and want to check what your users have sent.
 
-1.  Clone or download this project's files.
-2.  Place your downloaded `service_account_key.json` file in the same directory as the script.
-3.  Install the required Python libraries:
-    ```bash
-    pip install --upgrade openai google-api-python-client google-auth-httplib2 google-auth-oauthlib pytz
-    ```
+1. Google Setup (Service Account)
+Create Service Account:
 
------
+In your Google Cloud project, go to IAM & Admin > Service Accounts.
 
-## 🔑 Configuration
+Click "+ Create Service Account". Give it a name (e.g., daily-report-auditor).
 
-Open the Python script (`emailAgent.py` or `run_audit.py`) and edit the configuration variables at the top:
+Download JSON Key:
 
-```python
-# --- 1. Configuration (Set your details here) ---
+Click on your new service account's email address.
 
-# -- Google Config --
-# Change this to the exact name of your downloaded key file
-SERVICE_ACCOUNT_FILE = 'service_account_key.json' 
+Go to the "Keys" tab. Click "Add Key" > "Create new key".
 
-# Change these to the real email addresses you are auditing
-USERS_TO_AUDIT = ['alice@yourcompany.com', 'bob@yourcompany.com', 'charlie@yourcompany.com']
+Select JSON and click "Create". A file (e.g., service_account_1.json) will download. Save this in your project folder.
 
-# -- OpenAI Config --
-# The script will look for your key in an environment variable
-client = OpenAI() 
-```
+Authorize Domain-Wide Delegation (Critical Admin Task):
 
------
+First, find your Service Account's Client ID. Go to its "Details" tab and copy the "Unique ID" (it's a long number).
 
-## 🏃‍♂️ How to Run
+Go to your Google Workspace Admin Console (admin.google.com).
 
-1.  Open your terminal or command prompt.
-2.  Navigate to the project directory:
-    ```bash
-    cd path/to/your-project-folder
-    ```
-3.  Set your **OpenAI API Key** as an environment variable:
-      * **macOS/Linux:**
-        ```bash
-        export OPENAI_API_KEY='sk-YourSecretKeyGoesHere'
-        ```
-      * **Windows (CMD):**
-        ```bash
-        set OPENAI_API_KEY='sk-YourSecretKeyGoesHere'
-        ```
-      * **Windows (PowerShell):**
-        ```powershell
-        $env:OPENAI_API_KEY='sk-YourSecretKeyGoesHere'
-        ```
-4.  Run the script:
-    ```bash
-    python emailAgent.py
-    ```
-    *(On Windows, you may need to use `py emailAgent.py`)*
+Go to Security > Access and data control > API Controls.
 
-The script will run, log its progress to the console (including the "login" attempts), and finally print the AI-generated audit table.
+Click "Manage Domain Wide Delegation".
 
------
+Click "Add new".
 
-## architecture-diagram How it Works
+Paste the "Client ID" (the long number).
 
-1.  The script starts and creates an **OpenAI Assistant** with a custom "system prompt" that defines its role, the team list, and the deadline.
-2.  The script creates a **Thread** and asks the Assistant to "run the audit."
-3.  The Assistant's AI logic determines it needs to use its `search_all_required_inboxes` tool. The run **pauses** and enters a `requires_action` state.
-4.  The Python script executes the local `search_all_required_inboxes()` function.
-5.  This function loops through the `USERS_TO_AUDIT` list. For each user, it performs the **"agent login"** (`creds.with_subject(user_email)`) to impersonate them.
-6.  It uses the Gmail API to search that user's inbox for matching emails.
-7.  The function collects all found emails into a single JSON list and returns it to the Assistant.
-8.  The script submits this JSON data back to the Assistant, which **resumes** its run.
-9.  The Assistant analyzes the JSON (comparing `timestamp_unix` to the `DEADLINE_UNIX`), formulates its findings, and generates the final Markdown table as its response.
-10. The script prints the Assistant's final message and cleans up.
+In the "OAuth scopes" field, paste: https://www.googleapis.com/auth/gmail.readonly
 
------
+Click "Authorize". (This can take 10-15 minutes to activate).
 
-## 🩺 Troubleshooting
+2. Script Configuration (admin_agent.py)
+Open admin_agent.py and edit the configuration variables at the top:
 
-  * **ERROR:** `Python was not found...`
+Python
 
-      * **Cause:** A common Windows issue where a "stub" blocks the real Python installation.
-      * **Fix:** Run the script using `py emailAgent.py` OR go to "App execution aliases" in Windows Settings and turn off the `python.exe` stubs.
+# The name of your downloaded service account file
+SERVICE_ACCOUNT_FILE = 'service_account_1.json' 
 
-  * **ERROR:** `Unable to create process... The system cannot find the file specified.`
+# The list of user inboxes you want to check
+USERS_TO_AUDIT = [
+    'user1@yourcompany.com', 
+    'user2@yourcompany.com'
+]
+3. How to Run (Admin Agent)
+Set your OpenAI API Key as an environment variable (see below).
 
-      * **Cause:** Your IDE (like VS Code) is pointing to a non-existent Python path (e.g., `C:\Python313`).
-      * **Fix:** In VS Code, press `Ctrl+Shift+P` \> **"Python: Select Interpreter"** and choose the correct Python installation from the list.
+Run the script: python admin_agent.py
 
-  * **ERROR:** `unauthorized_client: Client is unauthorized to retrieve access tokens...`
+The agent will run automatically. It will not open a browser.
 
-      * **Cause:** This is the most common error. You skipped or incorrectly configured the **Google Workspace Admin** setup (Prerequisite \#4).
-      * **Fix:** Double-check that you have authorized the correct **Client ID** (the long number, *not* the email) and the *exact* scope (`https.://.../gmail.readonly`) in the "Manage Domain Wide Delegation" settings of your Admin Console. Wait 10 minutes for the change to take effect.
+🔑 Mode 2: Individual Agent (individual_agent.py) Setup
+Use this if you have a personal (@gmail.com) account and want to check your inbox for emails from your team.
+
+1. Google Setup (OAuth 2.0)
+Configure OAuth Consent Screen:
+
+In your Google Cloud project, go to APIs & Services > OAuth consent screen.
+
+Choose "External" and click "Create".
+
+Fill in the required fields (App name, User support email, Developer contact email).
+
+Click "Save and Continue" on all other steps.
+
+On the "Test users" step, click "+ Add Users" and add your own Gmail address. This is critical.
+
+Create Credentials:
+
+Go to APIs & Services > Credentials.
+
+Click "+ Create Credentials" > "OAuth client ID".
+
+For "Application type," select "Desktop app".
+
+Give it a name and click "Create".
+
+Click "DOWNLOAD JSON".
+
+Rename this file to credentials.json and save it in your project folder.
+
+2. Script Configuration (individual_agent.py)
+Open individual_agent.py and edit the configuration variables at the top:
+
+Python
+
+# This should match your downloaded file name
+CREDENTIALS_FILE = 'credentials.json'
+
+# The list of people you are expecting reports FROM
+USERS_TO_AUDIT = [
+    'nevin.m@ateamsoftsolutions.com', 
+    'vijay.shankar@ateamsoftsolutions.com'
+]
+3. How to Run (Individual Agent)
+Set your OpenAI API Key as an environment variable (see below).
+
+Delete token.json if it exists from a previous run.
+
+Run the script: python individual_agent.py
+
+First Run Only: Your browser will open. You must log in to your Google account (the one you set as a "Test user") and click "Allow". The script then creates a token.json file to save your login.
+
+All future runs will be automatic.
+
+🚀 Running the Project
+Open your terminal in the project folder.
+
+Set your OpenAI API Key as an environment variable.
+
+macOS/Linux:
+
+Bash
+
+export OPENAI_API_KEY='sk-YourSecretKeyGoesHere'
+Windows (CMD):
+
+Bash
+
+set OPENAI_API_KEY='sk-YourSecretKeyGoesHere'
+Windows (PowerShell):
+
+PowerShell
+
+$env:OPENAI_API_KEY='sk-YourSecretKeyGoesHere'
+Run your chosen script:
+
+Bash
+
+# For admin mode
+python admin_agent.py
+
+# OR
+
+# For individual mode
+python individual_agent.py
+Troubleshooting
+Error (Admin): unauthorized_client
+
+Cause: Your Domain-Wide Delegation is wrong or hasn't activated.
+
+Fix: Wait 15 minutes. If it persists, double-check that you authorized the Client ID (the long number), not the email, and that the scope https.../gmail.readonly is exact.
+
+Error (Individual): Error 403: access_denied
+
+Cause: You didn't add your email as a "Test user" on the OAuth Consent Screen.
+
+Fix: Go back to the OAuth consent screen setup in Google Cloud, click "Edit App", go to the "Test users" step, and add your email.
+
+Error (Individual): Error 401: invalid_client
+
+Cause: Your credentials.json is wrong.
+
+Fix: Ensure you are using the "Desktop app" JSON file, not a "Service Account" one.
+
+Error (Both): HttpError 403... Gmail API has not been used...
+
+Cause: You didn't enable the Gmail API.
+
+Fix: Go to the link in the error message and click the "Enable" button
