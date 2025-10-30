@@ -34,6 +34,174 @@ client = OpenAI(
 
 def search_all_required_inboxes():
     """
+    Searches inboxes for subjects containing 'Daily Task Report' and today's date.
+    This search is flexible and will find matches inside longer subject lines.
+    """
+    print("--- [Real Tool Called: search_all_required_inboxes] ---")
+    
+    all_found_emails = []
+    
+    # --- Get today's date in the standard format ---
+    try:
+        tz = pytz.timezone("EST") 
+        today_str = datetime.datetime.now(tz).strftime('%Y-%m-%d')
+    except Exception as e:
+        print(f"Warning: Could not get EST timezone. Using local date. {e}")
+        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        
+    print(f"Searching for reports containing keywords: (Daily Task Report {today_str})")
+
+    # 1. Load the agent's base credentials
+    try:
+        base_creds = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES
+        )
+    except FileNotFoundError:
+        print(f"ERROR: Service account key not found at {SERVICE_ACCOUNT_FILE}")
+        return json.dumps([{"error": "Service account key file not found."}])
+    except Exception as e:
+        print(f"ERROR: Could not load service account credentials: {e}")
+        return json.dumps([{"error": f"Error loading credentials: {e}"}])
+
+    # 2. Loop through each user to "log in" and check their inbox
+    for user_email in USERS_TO_AUDIT:
+        try:
+            print(f"Attempting to 'log in' as {user_email}...")
+            
+            delegated_creds = base_creds.with_subject(user_email)
+            service = build('gmail', 'v1', credentials=delegated_creds)
+
+            search_query = f'subject:(Daily Task Report {today_str}) from:me'
+            
+            results = service.users().messages().list(
+                userId='me',
+                q=search_query # Use the new, more flexible query
+            ).execute()
+            
+            messages = results.get('messages', [])
+
+            if not messages:
+                print(f"No reports found for {user_email}.")
+                continue
+
+            # 3. Get the *real* timestamp for the MOST RECENT found message
+            for msg_stub in messages[:1]: 
+                msg = service.users().messages().get(
+                    userId='me', id=msg_stub['id'], format='metadata',
+                    metadataHeaders=['Subject', 'Date']
+                ).execute()
+                
+                subject = next(h['value'] for h in msg['payload']['headers'] if h['name'] == 'Subject')
+                date_str = next(h['value'] for h in msg['payload']['headers'] if h['name'] == 'Date')
+
+                timestamp_unix = int(msg['internalDate']) // 1000 
+                
+                all_found_emails.append({
+                    "sender": user_email,
+                    "subject": subject,
+                    "timestamp_unix": timestamp_unix,
+                    "timestamp_human": date_str
+                })
+                print(f"Found report from {user_email}: '{subject}'")
+
+        except HttpError as e:
+            print(f"ERROR accessing {user_email}'s inbox: {e}")
+            all_found_emails.append({
+                "sender": user_email,
+                "error": f"Failed to access inbox. Check permissions: {e.details}"
+            })
+        except Exception as e:
+             print(f"An unexpected error occurred for {user_email}: {e}")
+
+    return json.dumps(all_found_emails)
+    
+    """
+    Searches inboxes for subjects containing 'Daily Task Report' and today's date.
+    This search is flexible and will find matches inside longer subject lines.
+    """
+    print("--- [Real Tool Called: search_all_required_inboxes] ---")
+    
+    all_found_emails = []
+    
+    # --- Get today's date in the standard format ---
+    try:
+        tz = pytz.timezone("EST") 
+        today_str = datetime.datetime.now(tz).strftime('%Y-%m-%d')
+    except Exception as e:
+        print(f"Warning: Could not get EST timezone. Using local date. {e}")
+        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        
+    print(f"Searching for reports containing keywords: (Daily Task Report {today_str})")
+
+    # 1. Load the agent's base credentials
+    try:
+        base_creds = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES
+        )
+    except FileNotFoundError:
+        print(f"ERROR: Service account key not found at {SERVICE_ACCOUNT_FILE}")
+        return json.dumps([{"error": "Service account key file not found."}])
+    except Exception as e:
+        print(f"ERROR: Could not load service account credentials: {e}")
+        return json.dumps([{"error": f"Error loading credentials: {e}"}])
+
+    # 2. Loop through each user to "log in" and check their inbox
+    for user_email in USERS_TO_AUDIT:
+        try:
+            print(f"Attempting to 'log in' as {user_email}...")
+            
+            delegated_creds = base_creds.with_subject(user_email)
+            service = build('gmail', 'v1', credentials=delegated_creds)
+
+            # --- !!!!!!! ---
+            # --- THE FIX ---
+            # --- !!!!!!! ---
+            # We remove the quotes ("") and use parentheses () for a keyword-based search.
+            search_query = f'subject:(Daily Task Report {today_str}) from:me'
+            # --- !!!!!!! ---
+
+            results = service.users().messages().list(
+                userId='me',
+                q=search_query # Use the new, more flexible query
+            ).execute()
+            
+            messages = results.get('messages', [])
+
+            if not messages:
+                print(f"No reports found for {user_email}.")
+                continue
+
+            # 3. Get the *real* timestamp for the MOST RECENT found message
+            for msg_stub in messages[:1]: 
+                msg = service.users().messages().get(
+                    userId='me', id=msg_stub['id'], format='metadata',
+                    metadataHeaders=['Subject', 'Date']
+                ).execute()
+                
+                subject = next(h['value'] for h in msg['payload']['headers'] if h['name'] == 'Subject')
+                date_str = next(h['value'] for h in msg['payload']['headers'] if h['name'] == 'Date')
+
+                timestamp_unix = int(msg['internalDate']) // 1000 
+                
+                all_found_emails.append({
+                    "sender": user_email,
+                    "subject": subject,
+                    "timestamp_unix": timestamp_unix,
+                    "timestamp_human": date_str
+                })
+                print(f"Found report from {user_email}: '{subject}'")
+
+        except HttpError as e:
+            print(f"ERROR accessing {user_email}'s inbox: {e}")
+            all_found_emails.append({
+                "sender": user_email,
+                "error": f"Failed to access inbox. Check permissions: {e.details}"
+            })
+        except Exception as e:
+             print(f"An unexpected error occurred for {user_email}: {e}")
+
+    return json.dumps(all_found_emails)
+    """
     Searches the inboxes of all required users (Alice, Bob, Charlie) 
     for 'Daily Task Report' and returns a JSON list of found emails.
     """
